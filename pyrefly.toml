@@ -1,0 +1,3 @@
+python-interpreter-path = ".venv/bin/python"
+project-includes = ["src/**/*.py", "*.py"]
+search-path = ["."]
