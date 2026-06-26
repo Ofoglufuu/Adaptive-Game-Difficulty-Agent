@@ -127,12 +127,17 @@ def plot_difficulty_progression(result: ExperimentResult, output_path: str = "re
     
     rounds = range(1, result.rounds + 1)
     difficulties = [r.difficulty_level for r in result.round_results]
-    
+
+    last_played_difficulty = result.round_results[-1].difficulty_level
+
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(rounds, difficulties, marker='o', linestyle='-', markersize=4, label='Difficulty per Round')
-    
+
     ax.axhline(y=result.initial_difficulty, color='g', linestyle='--', label=f'Initial Difficulty ({result.initial_difficulty})')
-    ax.axhline(y=result.final_difficulty, color='r', linestyle=':', label=f'Final Difficulty ({result.final_difficulty})')
+    ax.axhline(y=last_played_difficulty, color='r', linestyle=':', linewidth=2, label=f'Last Played Difficulty ({last_played_difficulty})')
+
+    if result.final_difficulty != last_played_difficulty:
+        ax.axhline(y=result.final_difficulty, color='orange', linestyle='-.', linewidth=2, label=f'Next Suggested Difficulty ({result.final_difficulty})')
     
     ax.set_xlabel('Round')
     ax.set_ylabel('Difficulty Level')
