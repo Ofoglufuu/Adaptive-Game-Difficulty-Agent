@@ -7,3 +7,5 @@ results/figures/*
 !results/figures/.gitkeep
 venv/
 env/
+.venv/
+.pytest_cache/
