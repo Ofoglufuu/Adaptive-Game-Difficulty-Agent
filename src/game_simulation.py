@@ -42,40 +42,54 @@ def simulate_round(
     if not (0.0 <= health_pack_rate <= 1.0):
         raise ValueError(f"health_pack_rate must be between 0.0 and 1.0. Got {health_pack_rate}")
 
-    # Use a local random instance if seed is provided to not alter global state
+    # Use a local random instance if seed is provided
     rng = random.Random(seed) if seed is not None else random
 
-    # Simple probability model
-    base_threat = (enemy_count * enemy_damage) / 100.0
-    player_strength = player.skill_level * 0.7 + player.survival_factor * 0.3
-    health_advantage = health_pack_rate * 0.5
+    # Difficulty penalty reduces win chance as difficulty increases (0.0 at Diff 1, 0.45 at Diff 10)
+    difficulty_penalty = (difficulty_level - 1) * 0.05
+
+    # Threat score representing the raw danger of enemies
+    threat_score = (enemy_count * enemy_damage) / 100.0
+
+    # Combine player attributes into meaningful metrics
+    offensive_power = (player.skill_level * 0.6) + (player.accuracy * 0.4)
+    defensive_power = (player.reaction_speed * 0.5) + (player.survival_factor * 0.5)
+
+    # Health packs give a direct bonus
+    health_bonus = health_pack_rate * 0.4
+
+    # Calculate win probability:
+    # Player strengths + health bonus + base chance (0.2) - threat - difficulty penalty
+    win_probability = (offensive_power * 0.7) + (defensive_power * 0.3) + health_bonus - (threat_score * 0.15) - difficulty_penalty + 0.2
     
-    # Win probability logic
-    win_probability = player_strength + health_advantage - (base_threat * 0.3)
+    # Ensure it's between 5% and 95% to maintain a random element
     win_probability = max(0.05, min(0.95, win_probability))
     
     victory = rng.random() < win_probability
     
-    # Plausible remaining health and damage based on outcome
+    # Plausible health and damage calculation
+    base_damage = threat_score * 40.0 
+    damage_mitigation = (defensive_power + health_pack_rate) * 20.0
+    damage_multiplier = 1.0 + (difficulty_level * 0.05)
+    
+    raw_damage = (base_damage - damage_mitigation) * damage_multiplier + rng.uniform(-10.0, 10.0)
+    
     if victory:
-        # Player wins with some health left
-        remaining_health = int(rng.uniform(10, 100) * player.survival_factor)
-        remaining_health = max(1, min(100, remaining_health))
-        damage_taken = 100 - remaining_health + int(health_pack_rate * rng.uniform(0, 50))
+        damage_taken = int(max(0, min(99, raw_damage)))
+        remaining_health = 100 - damage_taken
     else:
-        # Player loses, meaning 0 health
+        damage_taken = 100
         remaining_health = 0
-        damage_taken = 100 + int(health_pack_rate * rng.uniform(0, 50))
-        
-    damage_taken = min(100, damage_taken)
     
-    # Accuracy variance
+    # Round accuracy varies around player's base accuracy, negatively affected by difficulty
     acc_variance = rng.uniform(-0.1, 0.1)
-    round_accuracy = max(0.0, min(1.0, player.accuracy + acc_variance))
+    round_accuracy = max(0.0, min(1.0, player.accuracy - (difficulty_level * 0.01) + acc_variance))
     
-    # Round duration based on enemies
-    base_duration = rng.uniform(30.0, 120.0)
-    round_duration = base_duration + (enemy_count * 5.0)
+    # Round duration based on enemies and difficulty, reduced by reaction speed
+    base_duration = rng.uniform(30.0, 60.0)
+    time_penalty = enemy_count * 2.0 * (1 + difficulty_level * 0.1)
+    time_reduction = player.reaction_speed * 20.0
+    round_duration = max(10.0, base_duration + time_penalty - time_reduction)
 
     return GameRoundResult(
         victory=victory,
@@ -93,36 +107,58 @@ if __name__ == "__main__":
     from src.player import create_default_players
     
     players = create_default_players()
+    beginner = players[0]
+    average = players[1]
+    expert = players[2]
     
-    # Example difficulty parameters
-    dl, ec, ed, hpr = 5, 10, 10, 0.2
+    ec, ed, hpr = 10, 10, 0.2
     
-    print("--- Testing Player Types (Same Parameters) ---")
-    for p in players:
-        res = simulate_round(p, dl, ec, ed, hpr)
-        print(f"[{p.name}] Victory: {res.victory}, HP: {res.remaining_health}, Acc: {res.accuracy:.2f}")
+    print("--- 1. Single Round Difficulty Comparison (Same Player & Seed) ---")
+    res_d1 = simulate_round(average, 1, ec, ed, hpr, seed=100)
+    res_d5 = simulate_round(average, 5, ec, ed, hpr, seed=100)
+    res_d10 = simulate_round(average, 10, ec, ed, hpr, seed=100)
+    print(f"Difficulty 1:  Victory={res_d1.victory}, HP={res_d1.remaining_health}, Dmg={res_d1.damage_taken}")
+    print(f"Difficulty 5:  Victory={res_d5.victory}, HP={res_d5.remaining_health}, Dmg={res_d5.damage_taken}")
+    print(f"Difficulty 10: Victory={res_d10.victory}, HP={res_d10.remaining_health}, Dmg={res_d10.damage_taken}")
 
-    print("\n--- Testing Seed Reproducibility ---")
-    average_player = players[1]
-    res1 = simulate_round(average_player, dl, ec, ed, hpr, seed=42)
-    res2 = simulate_round(average_player, dl, ec, ed, hpr, seed=42)
-    print(f"Run 1 (Seed 42): Victory={res1.victory}, Duration={res1.round_duration:.2f}, HP={res1.remaining_health}")
-    print(f"Run 2 (Seed 42): Victory={res2.victory}, Duration={res2.round_duration:.2f}, HP={res2.remaining_health}")
-    
+    print("\n--- 2. Statistical Test: Difficulty Levels (1000 Rounds) ---")
+    def test_win_rate(player, dl, ec, ed, hpr, iterations=1000):
+        wins = sum(1 for _ in range(iterations) if simulate_round(player, dl, ec, ed, hpr).victory)
+        return (wins / iterations) * 100.0
+
+    print(f"Win Rate (Average Player, Diff 1):  {test_win_rate(average, 1, ec, ed, hpr):.1f}%")
+    print(f"Win Rate (Average Player, Diff 5):  {test_win_rate(average, 5, ec, ed, hpr):.1f}%")
+    print(f"Win Rate (Average Player, Diff 10): {test_win_rate(average, 10, ec, ed, hpr):.1f}%")
+
+    print("\n--- 3. Statistical Test: Player Profiles (1000 Rounds) ---")
+    dl_test = 5
+    print(f"Win Rate (Beginner, Diff 5): {test_win_rate(beginner, dl_test, ec, ed, hpr):.1f}%")
+    print(f"Win Rate (Average, Diff 5):  {test_win_rate(average, dl_test, ec, ed, hpr):.1f}%")
+    print(f"Win Rate (Expert, Diff 5):   {test_win_rate(expert, dl_test, ec, ed, hpr):.1f}%")
+
+    print("\n--- 4. Statistical Test: Health Pack Rate (1000 Rounds) ---")
+    print(f"Win Rate (Average, Diff 5, HPR=0.0): {test_win_rate(average, dl_test, ec, ed, 0.0):.1f}%")
+    print(f"Win Rate (Average, Diff 5, HPR=0.8): {test_win_rate(average, dl_test, ec, ed, 0.8):.1f}%")
+
+    print("\n--- 5. Seed Reproducibility ---")
+    res1 = simulate_round(average, dl_test, ec, ed, hpr, seed=42)
+    res2 = simulate_round(average, dl_test, ec, ed, hpr, seed=42)
+    print(f"Run 1 (Seed 42): Victory={res1.victory}, HP={res1.remaining_health}")
+    print(f"Run 2 (Seed 42): Victory={res2.victory}, HP={res2.remaining_health}")
     if res1 == res2:
         print("SUCCESS: Identical results with same seed.")
     else:
         print("FAIL: Results differ despite same seed!")
 
-    print("\n--- Testing Invalid Inputs ---")
+    print("\n--- 6. Invalid Inputs ---")
     try:
-        simulate_round(average_player, difficulty_level=11, enemy_count=10, enemy_damage=10, health_pack_rate=0.2)
+        simulate_round(average, difficulty_level=0, enemy_count=ec, enemy_damage=ed, health_pack_rate=hpr)
         print("FAIL: Expected ValueError for difficulty_level.")
     except ValueError as e:
         print(f"SUCCESS (Expected Error): {e}")
 
     try:
-        simulate_round(average_player, difficulty_level=5, enemy_count=10, enemy_damage=10, health_pack_rate=1.5)
+        simulate_round(average, difficulty_level=dl_test, enemy_count=ec, enemy_damage=ed, health_pack_rate=1.5)
         print("FAIL: Expected ValueError for health_pack_rate.")
     except ValueError as e:
         print(f"SUCCESS (Expected Error): {e}")
