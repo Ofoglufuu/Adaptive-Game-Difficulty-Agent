@@ -203,7 +203,9 @@ def run_comparison_experiments(
             raise ValueError(f"Invalid seed value: {s}")
 
     # Ensure output directory exists
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    out_dir = os.path.dirname(output_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     
     all_results = []
     meta_results = [] # Stores tuple of (ExperimentResult, seed, target_deviation)
@@ -323,10 +325,21 @@ if __name__ == "__main__":
 
     # 4. Check Reproducibility with Same Seeds
     print("\n--- Testing Reproducibility ---")
-    results_rep = run_comparison_experiments(players, 300, 5, [42, 123, 999], output_path="results/data/comparison_results_rep.csv")
-    for r1, r2 in zip(results, results_rep):
-        assert r1.overall_win_rate == r2.overall_win_rate, "Reproducibility failed"
-    print("SUCCESS: Experiments are fully reproducible.")
+    file1 = "results/data/comparison_results_rep1.csv"
+    file2 = "results/data/comparison_results_rep2.csv"
+    
+    results_rep1 = run_comparison_experiments(players, 300, 5, [42, 123, 999], output_path=file1)
+    results_rep2 = run_comparison_experiments(players, 300, 5, [42, 123, 999], output_path=file2)
+    
+    for r1, r2 in zip(results_rep1, results_rep2):
+        assert r1.overall_win_rate == r2.overall_win_rate, "Reproducibility failed on objects"
+        
+    with open(file1, "r", encoding="utf-8") as f1, open(file2, "r", encoding="utf-8") as f2:
+        content1 = f1.read()
+        content2 = f2.read()
+        
+    assert content1 == content2, "Reproducibility failed: CSV contents are not identical"
+    print("SUCCESS: Experiments are fully reproducible (objects and CSV contents are identical).")
 
     # 5. Invalid Inputs
     print("\n--- Testing Invalid Inputs ---")
