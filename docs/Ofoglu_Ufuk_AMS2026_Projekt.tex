@@ -1,0 +1,177 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[ngerman]{babel}
+\usepackage{geometry}
+\geometry{a4paper, margin=1.8cm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+
+\title{\vspace{-3em}\textbf{Adaptive Game Difficulty Agent}\\
+\large Dynamische Schwierigkeitsanpassung durch Spielersimulation}
+\author{Ufuk Ofoglu \\
+Modul: Angewandte Modellierung und Systemsimulation}
+\date{27. Juli 2026 \\
+\small GitHub: \url{https://github.com/Ofoglufuu/Adaptive-Game-Difficulty-Agent}}
+
+\begin{document}
+
+\maketitle
+\vspace{-1.5em}
+
+\section{Motivation und Forschungsfrage}
+
+In Videospielen kann ein statischer Schwierigkeitsgrad dazu führen, dass Anfänger überfordert und erfahrene Spieler unterfordert sind. Die dynamische Schwierigkeitsanpassung (Dynamic Difficulty Adjustment, DDA) löst dieses Problem, indem sie den Schwierigkeitsgrad während der Laufzeit auf Basis der beobachteten Spielerleistung anpasst. In diesem Projekt wird eine vereinfachte probabilistische Spielsimulation anstelle einer echten Game Engine verwendet, um dieses Konzept zu evaluieren.
+
+Die zentrale Forschungsfrage lautet:
+\begin{quote}
+\textit{„Kann ein adaptiver Schwierigkeitsagent eine ausgewogenere Spielerfahrung erzeugen als ein statisches Schwierigkeitssystem?“}
+\end{quote}
+
+Um die Ausgewogenheit zu messen, wird eine Zielgewinnrate von 60\,\% als vereinfachter Indikator verwendet. Dabei ist zu beachten, dass die reine Gewinnrate nur ein Proxy für die Spielbalance ist und Aspekte wie Spielspaß, Fairness oder die umfassende Spielerfahrung nicht vollständig abbilden kann.
+
+\section{Architektur und Tech Stack}
+
+Die Architektur des Systems ist auf Determinismus und Nachvollziehbarkeit ausgelegt. Die Kernkomponenten kommunizieren über direkte Python-Funktionsaufrufe.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        node distance=0.8cm and 0.8cm,
+        box/.style={rectangle, draw, rounded corners, text centered, inner sep=5pt, minimum height=0.7cm, font=\small},
+        arrow/.style={-{Stealth}, thick}
+        ]
+        
+        \node[box] (profile) {PlayerProfile};
+        \node[box, right=of profile] (settings) {DifficultySettings};
+        \node[box, right=of settings] (sim) {simulate\_round()};
+        \node[box, below=of sim] (result) {GameRoundResult};
+        \node[box, left=of result] (agent) {AdaptiveDifficultyAgent};
+        \node[box, left=of agent] (next) {next difficulty level};
+        
+        \draw[arrow] (profile) -- (settings);
+        \draw[arrow] (settings) -- (sim);
+        \draw[arrow] (sim) -- (result);
+        \draw[arrow] (result) -- (agent);
+        \draw[arrow] (agent) -- (next);
+        \draw[arrow, dashed] (next) -- (profile);
+    \end{tikzpicture}
+    \caption{Ablauf der Kernsimulation}
+\end{figure}
+
+Darüber hinaus existiert ein optionaler Pfad für den interaktiven Modus:
+\begin{center}
+\small \texttt{reaction test $\rightarrow$ median reaction time $\rightarrow$ reaction score $\rightarrow$ personalized PlayerProfile $\rightarrow$ adaptive live demo}
+\end{center}
+
+Die Umsetzung der verschiedenen architektonischen Schichten gestaltet sich wie folgt:
+
+\begin{table}[H]
+    \centering
+    \begin{tabularx}{\textwidth}{lX}
+    \toprule
+    \textbf{Bereich} & \textbf{Umsetzung} \\
+    \midrule
+    Backend / Simulation & Selbst entwickelte probabilistische Simulation in Python \\
+    Intelligence & Transparenter regelbasierter AdaptiveDifficultyAgent \\
+    Orchestrierung & Direkte Python-Funktionsaufrufe über \texttt{main.py} und \texttt{experiment.py} \\
+    Auswertung & CSV-Export, Matplotlib-Diagramme und Pytest \\
+    Interaktion & Terminal-Live-Demo und optionaler Reaktionstest \\
+    \bottomrule
+    \end{tabularx}
+    \caption{Konzepte und Technologien}
+\end{table}
+
+\textbf{Architekturentscheidungen und Protokolle:}
+Das System ist bewusst als lokales Single-Agent-System konzipiert. Es verwendet weder das Model Context Protocol (MCP) noch Agent-to-Agent-Kommunikation (A2A). Die Module kommunizieren ausschließlich über direkte Python-Funktionsaufrufe. Es sind weder Large Language Models (LLM) noch ein Agent Development Kit (ADK) erforderlich. Diese Architekturentscheidung wurde getroffen, da das Projekt höchste Priorität auf Transparenz, deterministisches Verhalten, Reproduzierbarkeit und einen überschaubaren technischen Umfang legt.
+
+\section{Simulationsmodell und Agentenlogik}
+
+Für die Experimente werden drei vordefinierte, synthetische Spielerprofile verwendet, die unterschiedliche Leistungsniveaus repräsentieren:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Profil} & \textbf{skill\_level} & \textbf{accuracy} & \textbf{reaction\_speed} & \textbf{survival\_factor} \\
+    \midrule
+    Anfänger & 0.35 & 0.30 & 0.25 & 0.40 \\
+    durchschnittlicher Spieler & 0.60 & 0.60 & 0.55 & 0.65 \\
+    erfahrener Spieler & 0.85 & 0.85 & 0.80 & 0.90 \\
+    \bottomrule
+    \end{tabular}
+    \caption{Synthetische Spielerprofile}
+\end{table}
+
+Der Schwierigkeitsgrad (\texttt{level}) reicht von 1 bis 10 und bestimmt drei Spielparameter:
+\begin{itemize}
+    \item \texttt{enemy\_count} $= 3 + (\texttt{level} - 1)$
+    \item \texttt{enemy\_damage} $= 5 + (\texttt{level} - 1)$
+    \item \texttt{health\_pack\_rate} $= 0.40 - 0.03 \times (\texttt{level} - 1)$
+\end{itemize}
+Die Heilungswahrscheinlichkeit (\texttt{health\_pack\_rate}) wird in der Implementierung gerundet. Ein höherer Schwierigkeitsgrad bedeutet folglich mehr Gegner, höheren Gegnerschaden und eine geringere Heilungswahrscheinlichkeit.
+
+Der \texttt{AdaptiveDifficultyAgent} hat folgende Standardeinstellungen:
+Zielgewinnrate: 60\,\%, Beobachtungsfenster: letzte 5 Runden, Min./Max. Schwierigkeit: 1 bis 10, maximale Änderung: eine Stufe pro Entscheidung. Es handelt sich um einen reinen regelbasierten Agenten (kein Machine Learning). Die Entscheidungsregeln werden in dieser Reihenfolge ausgewertet:
+\begin{enumerate}
+    \item Drei aufeinanderfolgende Niederlagen $\rightarrow$ reduzieren
+    \item Drei aufeinanderfolgende Siege und Gewinnrate über Ziel $\rightarrow$ erhöhen
+    \item Gewinnrate $\le 40\,\%$ $\rightarrow$ reduzieren
+    \item Gewinnrate $\ge 80\,\%$ $\rightarrow$ erhöhen
+    \item Sonst $\rightarrow$ beibehalten
+\end{enumerate}
+
+\section{Experimentdesign und Ergebnisse}
+
+Das Standard-Vergleichsexperiment testet das statische System (konstanter Schwierigkeitsgrad) gegen das adaptive System (Auswertung nach jeder Runde). Es nutzt die drei Spielerprofile, drei feste Seeds (42, 123, 999) und 300 Runden pro Experiment. Dies resultiert in insgesamt 18 Experimentdurchläufen und 5400 simulierten Runden. Die Startschwierigkeit ist stets 5, die Zielgewinnrate beträgt 60\,\%. Die primäre Metrik ist die absolute Abweichung von diesem Ziel.
+
+Die folgenden mittleren Ergebnisse wurden ermittelt:
+
+\begin{table}[H]
+    \centering
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Profil} & \textbf{Statisch: Gewinnrate} & \textbf{Adaptiv: Gewinnrate} & \textbf{Statisch: Zielabweichung} & \textbf{Adaptiv: Zielabweichung} \\
+    \midrule
+    Anfänger & 35.1\,\% & 50.2\,\% & 24.9 Prozentpunkte & 9.8 Prozentpunkte \\
+    durchschnittlicher Spieler & 66.7\,\% & 52.3\,\% & 6.7 Prozentpunkte & 7.7 Prozentpunkte \\
+    erfahrener Spieler & 88.0\,\% & 56.0\,\% & 28.0 Prozentpunkte & 4.0 Prozentpunkte \\
+    \bottomrule
+    \end{tabular}}
+    \caption{Mittlere Ergebnisse der Vergleichsexperimente}
+\end{table}
+
+\textbf{Interpretation:} Für den Anfänger reduziert das adaptive System die anfängliche Überforderung, wodurch das Ergebnis näher am Ziel liegt. Beim erfahrenen Spieler erhöht das System den anfänglich zu niedrigen Schwierigkeitsgrad, was ebenfalls zu einer deutlich geringeren Zielabweichung führt. Für den durchschnittlichen Spieler ist die Startschwierigkeit 5 jedoch bereits sehr gut kalibriert, sodass das statische System leicht besser abschneidet. Das adaptive System ist folglich besonders dann nützlich, wenn die Startschwierigkeit nicht optimal zum Spieler passt; es ist jedoch nicht unter allen Umständen überlegen.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../results/figures/win_rate_comparison.png}
+        \caption{Gewinnraten im Vergleich}
+    \end{minipage}\hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{../results/figures/target_deviation.png}
+        \caption{Abweichung von der Zielgewinnrate}
+    \end{minipage}
+\end{figure}
+
+\section{Interaktive Erweiterung, Qualitätssicherung und Fazit}
+
+\textbf{Reaktionstest-Modus:} Als optionales interaktives Feature (nicht Teil des wissenschaftlichen Kernvergleichs) kann der Nutzer im Terminal Reaktionsmessungen durchführen. Aus dem Median dieser Messungen wird ein Score zwischen 0.0 und 1.0 gebildet. Dieser personalisiert ausschließlich den Wert \texttt{reaction\_speed}. Die übrigen Parameter (\texttt{skill\_level} = 0.60, \texttt{accuracy} = 0.60, \texttt{survival\_factor} = 0.65) bleiben vordefiniert. Um Fehleingaben zu vermeiden, werden Zeiten unter 80\,ms ignoriert. Die Zuordnung zu den Kategorien „Experte“, „Durchschnitt“ oder „Anfänger“ erfolgt ausschließlich im Kontext dieses Projekts und stellt keine wissenschaftliche Bewertung der allgemeinen Spielfähigkeit dar.
+
+\textbf{Qualitätssicherung:} Die Integrität des Projekts wird durch 113 bestandene automatisierte Pytest-Tests sichergestellt. Die Verwendung fester Seeds macht die Simulation reproduzierbar, was bedeutet, dass der CSV-Output mit denselben Parametern identisch bleibt. Die Reaktionsmessungen hingegen bleiben zwangsläufig von menschlichen Eingaben und Latenzen des Geräts abhängig.
+
+\textbf{Limitationen:} Das Projekt weist mehrere Limitationen auf: Es verwendet eine vereinfachte probabilistische Simulation anstelle einer echten Game Engine und arbeitet mit synthetischen Profilen anstelle echter Spieltelemetrie. Die Gewinnrate ist lediglich ein Proxy für die Spielbalance. Der Agent ist strikt regelbasiert und lernt nicht selbstständig. Zudem ist der Reaktionstest anfällig für Latenzen (Tastatur, Display, Terminal) sowie die Aufmerksamkeit des Nutzers.
+
+\textbf{Fazit:} Innerhalb des vereinfachten Modells kann der adaptive Agent ein ausgewogeneres Ergebnis erzeugen, insbesondere dann, wenn die statische Startschwierigkeit für den jeweiligen Spieler ungeeignet ist. Allerdings kann ein gut gewählter statischer Schwierigkeitsgrad bereits sehr gut abschneiden, wie das Profil des durchschnittlichen Spielers zeigt. Das Projekt demonstriert somit das Potenzial einer transparenten dynamischen Schwierigkeitsanpassung, ohne deren Effektivität in kommerziellen Spielen abschließend zu belegen.
+
+\end{document}
