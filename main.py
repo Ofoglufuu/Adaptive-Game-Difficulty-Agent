@@ -291,14 +291,17 @@ if __name__ == "__main__":
             )
 
         # Run the interactive reaction test
-        test_result = run_reaction_test(attempts=args.reaction_attempts)
+        test_result = run_reaction_test(
+            attempts=args.reaction_attempts,
+            seed=args.seed,
+        )
 
         # Build a personalised player profile from the measured reaction time
         player = create_reaction_profile(test_result.median_reaction_time_ms)
 
         # Display the generated profile
         print()
-        print("Persoenliches Profil:")
+        print("Persönliches Profil:")
         print(f"  Name:             {player.name}")
         print(f"  Skill Level:      {player.skill_level:.2f}")
         print(f"  Accuracy:         {player.accuracy:.2f}")

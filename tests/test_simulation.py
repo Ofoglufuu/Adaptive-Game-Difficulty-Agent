@@ -879,3 +879,61 @@ class TestRunReactionTest:
         with pytest.raises(ValueError):
             run_reaction_test(min_wait_seconds=3.0, max_wait_seconds=1.0)
 
+    def test_accepts_fixed_seed(self, monkeypatch):
+        """run_reaction_test accepts and uses a fixed seed without error."""
+        monkeypatch.setattr("builtins.input", lambda *args, **kwargs: "")
+        monkeypatch.setattr("time.sleep", lambda _: None)
+        monkeypatch.setattr(
+            "time.perf_counter", self._make_perf_counter(0.25)
+        )
+
+        # Two calls with the same seed should produce the same median because
+        # the wait sequence is deterministic (human times are mocked equally).
+        result_a = run_reaction_test(attempts=3, seed=42)
+        result_b = run_reaction_test(attempts=3, seed=42)
+        assert result_a.median_reaction_time_ms == pytest.approx(
+            result_b.median_reaction_time_ms
+        )
+
+    def test_invalid_measurement_below_80ms_is_excluded(self, monkeypatch):
+        """A measurement below 80 ms is rejected and the attempt is retried."""
+        monkeypatch.setattr("builtins.input", lambda *args, **kwargs: "")
+        monkeypatch.setattr("time.sleep", lambda _: None)
+
+        # First call returns 0.0 (start); second returns 0.05 s -> 50 ms (too fast).
+        # All subsequent calls return alternating 0.0 / 0.30 s -> 300 ms (valid).
+        elapsed_values = iter([0.0, 0.05, 0.0, 0.30, 0.0, 0.30, 0.0, 0.30])
+
+        def fake_perf_counter():
+            return next(elapsed_values)
+
+        monkeypatch.setattr("time.perf_counter", fake_perf_counter)
+
+        result = run_reaction_test(attempts=3, seed=0)
+
+        # The 50 ms measurement must NOT appear in the final list.
+        assert all(t >= 80.0 for t in result.reaction_times_ms)
+
+    def test_correct_count_after_retry(self, monkeypatch):
+        """Final measurement count equals attempts even when one attempt is retried."""
+        monkeypatch.setattr("builtins.input", lambda *args, **kwargs: "")
+        monkeypatch.setattr("time.sleep", lambda _: None)
+
+        # Simulate: first attempt too fast (50 ms), then four valid attempts (250 ms).
+        # Pairs (start, end) for perf_counter calls:
+        #   attempt 1 (invalid): 0.0, 0.05
+        #   attempt 2 (valid):   0.0, 0.25
+        #   attempt 3 (valid):   0.0, 0.25
+        #   attempt 4 (valid):   0.0, 0.25
+        elapsed_values = iter([0.0, 0.05, 0.0, 0.25, 0.0, 0.25, 0.0, 0.25])
+
+        def fake_perf_counter():
+            return next(elapsed_values)
+
+        monkeypatch.setattr("time.perf_counter", fake_perf_counter)
+
+        result = run_reaction_test(attempts=3, seed=0)
+
+        assert len(result.reaction_times_ms) == 3
+
+

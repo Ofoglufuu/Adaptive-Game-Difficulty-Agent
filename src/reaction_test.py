@@ -27,6 +27,7 @@ _EXPERT_THRESHOLD_MS: float  = 220.0
 _AVERAGE_THRESHOLD_MS: float = 350.0
 
 _MIN_VALID_MEASUREMENTS: int = 3
+_TOO_FAST_THRESHOLD_MS: float = 80.0  # measurements below this are treated as buffered keypresses
 
 
 # ── Data model ────────────────────────────────────────────────────────────────
@@ -35,7 +36,7 @@ _MIN_VALID_MEASUREMENTS: int = 3
 class ReactionTestResult:
     """Stores the outcome of a complete reaction test session."""
 
-    reaction_times_ms: list
+    reaction_times_ms: list[float]
     median_reaction_time_ms: float
     reaction_score: float
     profile_category: str
@@ -133,7 +134,7 @@ def create_reaction_profile(median_reaction_time_ms: float) -> PlayerProfile:
 
 # ── Evaluation ────────────────────────────────────────────────────────────────
 
-def evaluate_reaction_times(reaction_times_ms: list) -> ReactionTestResult:
+def evaluate_reaction_times(reaction_times_ms: list[float]) -> ReactionTestResult:
     """Evaluate a list of raw reaction time measurements.
 
     Args:
@@ -230,17 +231,19 @@ def run_reaction_test(
     print("         REAKTIONSZEIT-TEST")
     print("======================================================")
     print()
-    print(f"  Es werden {attempts} Messungen durchgefuehrt.")
-    print("  Druecke Enter, um jeden Versuch zu starten.")
-    print("  Wenn 'JETZT!' erscheint, druecke sofort Enter.")
-    print("  Hinweis: Dies ist eine reaktionsbasierte Profileinschaetzung,")
+    print(f"  Es werden {attempts} Messungen durchgeführt.")
+    print("  Drücke Enter, um jeden Versuch zu starten.")
+    print("  Wenn 'JETZT!' erscheint, drücke sofort Enter.")
+    print("  Hinweis: Dies ist eine reaktionsbasierte Profileinschätzung,")
     print("           keine wissenschaftliche Skillbewertung.")
     print()
 
-    reaction_times_ms = []
+    reaction_times_ms: list[float] = []
+    attempt_num = 0
 
-    for attempt_num in range(1, attempts + 1):
-        input(f"  Versuch {attempt_num}/{attempts} - Druecke Enter zum Starten ...")
+    while len(reaction_times_ms) < attempts:
+        attempt_num += 1
+        input(f"  Versuch {len(reaction_times_ms) + 1}/{attempts} – Drücke Enter zum Starten ...")
 
         wait_seconds = rng.uniform(min_wait_seconds, max_wait_seconds)
         time.sleep(wait_seconds)
@@ -251,8 +254,14 @@ def run_reaction_test(
         t_end = time.perf_counter()
 
         elapsed_ms = (t_end - t_start) * 1000.0
+
+        if elapsed_ms < _TOO_FAST_THRESHOLD_MS:
+            print("  Zu früh gedrückt. Der Versuch wird wiederholt.")
+            print()
+            continue
+
         reaction_times_ms.append(elapsed_ms)
-        print(f"  -> Reaktionszeit: {elapsed_ms:.0f} ms")
+        print(f"  → Reaktionszeit: {elapsed_ms:.0f} ms")
         print()
 
     # ── Evaluate all measurements ─────────────────────────────────────────────
@@ -267,6 +276,6 @@ def run_reaction_test(
     print()
     print(f"Median: {result.median_reaction_time_ms:.0f} ms")
     print(f"Reaktionswert: {result.reaction_score:.2f}")
-    print(f"Reaktionsbasierte Profileinschaetzung: {result.profile_category}")
+    print(f"Reaktionsbasierte Profileinschätzung: {result.profile_category}")
 
     return result
