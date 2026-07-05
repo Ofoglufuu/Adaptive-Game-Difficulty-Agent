@@ -3,8 +3,14 @@ __pycache__/
 .DS_Store
 results/data/*
 !results/data/.gitkeep
+!results/data/comparison_results.csv
+
 results/figures/*
 !results/figures/.gitkeep
+!results/figures/win_rate_comparison.png
+!results/figures/target_deviation.png
+!results/figures/difficulty_progression.png
+!results/figures/moving_win_rate.png
 venv/
 env/
 .venv/

@@ -28,13 +28,22 @@ Ein adaptiver Agent passt die Schwierigkeit einer Spielsimulation an die Leistun
 * regelbasierter Difficulty Agent
 * mindestens drei Ergebnisdiagramme
 
+## Zusätzliche interaktive Erweiterung
+
+* optionaler Reaktionstest im Terminal
+* Berechnung eines Reaktionswerts aus dem Median mehrerer Messungen
+* Erstellung eines persönlichen Spielerprofils
+* ausschließlich `reaction_speed` wird aus der Nutzermessung abgeleitet
+* die übrigen Profilwerte bleiben vordefiniert
+* die Funktion ist ein Demo-Feature und kein Teil des wissenschaftlichen Kernvergleichs
+
 ## Nicht Bestandteil der ersten Version
 
 * echte Game Engine
 * Reinforcement Learning
 * LLM als entscheidende Steuerungsinstanz
 * Weboberfläche
-* reale Spielerdaten
+* reale Spieltelemetrie- und Langzeitdaten
 * komplexe Gegner-KI
 * Multiplayer-Funktionen
 
