@@ -2,6 +2,8 @@
 
 Ein agentenbasiertes System, das den Schwierigkeitsgrad einer Spielsimulation automatisch an die Leistung des Spielers anpasst.
 
+Zusätzlich enthält das Projekt einen optionalen **Reaktionstest-Modus**: Der Nutzer misst seine Reaktionszeit im Terminal, der gemessene Median wird in einen Reaktionswert zwischen 0,0 und 1,0 umgerechnet, und daraus wird ein personalisiertes Spielerprofil erstellt, das direkt in der adaptiven Live-Demo verwendet werden kann.
+
 ---
 
 ## Projektidee
@@ -32,6 +34,24 @@ Jede Spielrunde läuft in folgendem Ablauf:
    - `decrease` – Schwierigkeit reduzieren
    - `keep` – Schwierigkeit beibehalten
 6. **Neue Schwierigkeit anwenden** – gilt ab der nächsten Runde.
+
+### Optionaler Reaktionstest-Pfad
+
+Als zusätzliches interaktives Demo-Feature kann das Spielerprofil aus einer Reaktionszeitenmessung abgeleitet werden:
+
+1. **Reaktionstest starten** – der Nutzer startet den Test im Terminal.
+2. **Messungen durchführen** – mehrere Reaktionszeiten werden nacheinander gemessen.
+3. **Median berechnen** – aus allen gültigen Messungen wird der Medianwert ermittelt.
+4. **Reaktionswert ableiten** – der Median wird in einen Wert zwischen 0,0 und 1,0 umgerechnet.
+5. **Persönliches Profil erstellen** – ein Profil mit dem gemessenen Reaktionswert wird erzeugt.
+6. **Adaptive Demo starten** – die Demo läuft automatisch mit diesem Profil weiter.
+
+Dabei wird ausschließlich `reaction_speed` aus der Messung abgeleitet. Die übrigen Profilwerte bleiben auf dem Niveau eines durchschnittlichen Spielers:
+
+- `skill_level` bleibt **0,60**
+- `accuracy` bleibt **0,60**
+- `survival_factor` bleibt **0,65**
+- nur `reaction_speed` wird aus dem Reaktionstest personalisiert
 
 ---
 
@@ -109,9 +129,10 @@ Der `AdaptiveDifficultyAgent` wertet die letzten Spielrunden aus und passt die S
 │   ├── game_simulation.py         # Simulation einer einzelnen Runde
 │   ├── difficulty_agent.py        # Schwierigkeitsmodell und adaptiver Agent
 │   ├── experiment.py              # Statische und adaptive Experimentläufe
+│   ├── reaction_test.py           # Interaktiver Reaktionstest und Erstellung eines persönlichen Profils
 │   └── visualization.py          # Diagrammerstellung
 ├── tests/
-│   └── test_simulation.py         # Automatisierte Pytest-Tests (74 Tests)
+│   └── test_simulation.py         # Automatisierte Pytest-Tests (113 Tests)
 ├── docs/
 │   ├── project_scope.md
 │   └── project_documentation.md
@@ -159,12 +180,12 @@ python main.py --player expert --rounds 10 --difficulty 3 --seed 42
 
 **CLI-Parameter:**
 
-| Parameter      | Beschreibung                                  | Standard  | Gültige Werte                |
-|----------------|-----------------------------------------------|-----------|------------------------------|
-| `--player`     | Spielerprofil                                 | `average` | `beginner`, `average`, `expert` |
-| `--rounds`     | Anzahl der Spielrunden                        | `15`      | Ganzzahl > 0                 |
-| `--difficulty` | Startschwierigkeit                            | `5`       | 1 bis 10                     |
-| `--seed`       | Zufallsseed für Reproduzierbarkeit            | `42`      | Beliebige Ganzzahl           |
+| Parameter            | Beschreibung                                         | Standard  | Gültige Werte                    |
+|----------------------|------------------------------------------------------|-----------|----------------------------------|
+| `--player`           | Spielerprofil                                        | `average` | `beginner`, `average`, `expert`  |
+| `--rounds`           | Anzahl der Spielrunden                               | `15`      | Ganzzahl > 0                     |
+| `--difficulty`       | Startschwierigkeit                                   | `5`       | 1 bis 10                         |
+| `--seed`             | Zufallsseed für Reproduzierbarkeit                   | `42`      | Beliebige Ganzzahl               |
 
 Ungültige Eingaben werden mit verständlichen Fehlermeldungen abgewiesen.
 
@@ -174,6 +195,89 @@ Ungültige Eingaben werden mit verständlichen Fehlermeldungen abgewiesen.
 Runde 04 | Schwierigkeit 4 | Gegner 6 | Schaden 8 | Heilung 31 % | Sieg | HP 100 | Trefferquote 47 % | Agent: increase | Nächste Schwierigkeit 5
   Gesamtgewinnrate 75.0 % | Letzte 4 Runden 75.0 %
 ```
+
+---
+
+## Reaktionstest-Modus
+
+Der Reaktionstest ist ein optionaler interaktiver Modus. Er misst die Reaktionszeit des Nutzers im Terminal und erstellt daraus ein personalisiertes Spielerprofil für die adaptive Demo.
+Das Ergebnis ist eine **reaktionsbasierte Profileinschätzung** – keine wissenschaftliche Bewertung der vollständigen Spielfähigkeit.
+
+**Einfacher Start:**
+
+```bash
+python main.py --reaction-test
+```
+
+**Beispiele mit weiteren Parametern:**
+
+```bash
+python main.py --reaction-test --reaction-attempts 5 --rounds 10 --difficulty 5 --seed 42
+python main.py --reaction-test --reaction-attempts 7 --rounds 20 --difficulty 6 --seed 123
+```
+
+**Neue CLI-Parameter:**
+
+| Parameter              | Beschreibung                                                          | Standard | Gültige Werte  |
+|------------------------|-----------------------------------------------------------------------|----------|----------------|
+| `--reaction-test`      | Aktiviert den interaktiven Reaktionstest-Modus                        | –        | Flag (kein Wert) |
+| `--reaction-attempts`  | Anzahl der gültigen Reaktionszeitenmessungen                          | `5`      | Ganzzahl ≥ 3   |
+
+**Verhalten:**
+
+- `--player` wird im Reaktionstest-Modus ignoriert; das Profil wird aus der Messung erzeugt.
+- `--rounds`, `--difficulty` und `--seed` wirken wie gewohnt auf die nachfolgende adaptive Demo.
+- Der `--seed` steuert zusätzlich die zufällige Wartesequenz vor jedem `JETZT!`-Signal.
+- Die tatsächliche menschliche Reaktionszeit ist von Natur aus nicht reproduzierbar.
+
+---
+
+### Reaktionstest-Logik
+
+Der Test erfordert mindestens **3 gültige Messungen**; der Standardwert sind **5 Messungen**.
+Zur Auswertung wird der **Median** der Messungen verwendet (nicht der Durchschnitt), da dieser robuster gegenüber Ausreißern ist.
+
+**Ungültige Messungen:**
+
+Messungen unter **80 ms** werden als implausibel frühe oder gepufferte Tastendrücke abgelehnt.
+Die entsprechende Ausgabe lautet: `Zu früh gedrückt. Der Versuch wird wiederholt.`
+Abgelehnte Messungen werden nicht in das Ergebnis aufgenommen und der Versuch wird automatisch wiederholt, bis die gewünschte Anzahl gültiger Messungen vorliegt.
+
+**Reaktionswert-Berechnung:**
+
+| Reaktionszeit          | Reaktionswert |
+|------------------------|:-------------:|
+| ≤ 150 ms               | 1,00          |
+| 325 ms (Mittelpunkt)   | ≈ 0,50        |
+| ≥ 500 ms               | 0,00          |
+
+Zwischen 150 ms und 500 ms wird linear interpoliert. Der Wert wird auf den Bereich \[0,0 – 1,0\] begrenzt.
+
+**Profilkategorien:**
+
+| Reaktionszeit           | Kategorie   |
+|-------------------------|:-----------:|
+| unter 220 ms            | `expert`    |
+| 220 ms bis < 350 ms     | `average`   |
+| 350 ms und darüber      | `beginner`  |
+
+> **Hinweis:** Diese Kategorien sind projektspezifische Schwellenwerte für die Demo. Sie stellen keine wissenschaftliche Bewertung der allgemeinen Spielfähigkeit dar.
+
+---
+
+### Persönliches Profil
+
+Aus dem gemessenen Medianwert wird ein Spielerprofil nach folgendem Schema erstellt:
+
+| Eigenschaft      | Wert                    |
+|------------------|------------------------:|
+| Name             | Reaktionstest-Spieler   |
+| skill level      | 0,60                    |
+| accuracy         | 0,60                    |
+| reaction speed   | aus Reaktionstest       |
+| survival factor  | 0,65                    |
+
+Nur `reaction_speed` wird aus der Nutzermessung abgeleitet. Alle anderen Werte entsprechen dem Niveau eines durchschnittlichen Spielers und bleiben fest. Das Ergebnis ist eine **reaktionsbasierte Profileinschätzung**, keine umfassende Bewertung der Spielfähigkeit.
 
 ---
 
@@ -191,7 +295,7 @@ oder mit dem Venv direkt:
 ./.venv/bin/python -m pytest -v
 ```
 
-**Aktueller Teststand: 74 Tests bestanden**
+**Aktueller Teststand: 113 Tests bestanden**
 
 Abgedeckte Bereiche:
 
@@ -203,6 +307,13 @@ Abgedeckte Bereiche:
 - `run_adaptive_experiment` – Entscheidungen, Grenzen, Reproduzierbarkeit
 - `run_comparison_experiments` – CSV-Ausgabe, Fehlerpfade, Reproduzierbarkeit
 - `main.py`-Hilfsfunktionen – Spielerauswahl, Gewinnratenberechnung
+- Reaktionswert-Berechnung (`calculate_reaction_score`) – Grenzwerte, Clamping, Fehlerpfade
+- Schwellenwert-Klassifikation (`classify_reaction_time`) – alle Kategoriegrenzen
+- Median-Auswertung (`evaluate_reaction_times`) – Korrektheit, Fehlerpfade
+- Persönliche Profilerstellung (`create_reaction_profile`) – Werte, Typen
+- Interaktiver Reaktionstest (`run_reaction_test`) – gemockter Input und Timing
+- Ablehnung von Messungen unter 80 ms und Wiederholungsverhalten
+- Verarbeitung eines festen Seeds für die Wartesequenz
 
 ---
 
@@ -257,6 +368,12 @@ Simulationen mit einem festen Seed sind vollständig reproduzierbar:
 - CSV-Dateien können bei gleichen Parametern byte-identisch erzeugt werden; dies wird im manuellen Reproduzierbarkeitstest von `src/experiment.py` geprüft.
 - Die Pytest-Suite prüft zusätzlich die Reproduzierbarkeit zentraler Simulationsergebnisse.
 
+**Reaktionstest:**
+
+- Die zufällige Wartesequenz vor jedem `JETZT!`-Signal ist mit einem festen `--seed` reproduzierbar.
+- Die tatsächlichen Reaktionszeitenmessungen sind **nicht reproduzierbar**, da sie von menschlichem Input abhängen.
+- Die adaptive Simulation nach der Profilerstellung bleibt für dasselbe erzeugte Profil und denselben Simulationsseed reproduzierbar.
+
 ---
 
 ## Grenzen des Modells
@@ -264,10 +381,13 @@ Simulationen mit einem festen Seed sind vollständig reproduzierbar:
 Das Modell vereinfacht die Realität an mehreren Stellen:
 
 - Die Spielsimulation ist **probabilistisch und stark vereinfacht** – keine echte Game Engine.
-- Es werden **keine realen Spielerdaten** verwendet; alle Profile sind synthetisch.
+- Die drei Standardprofile sind synthetisch. Im Reaktionstest-Modus wird lediglich der Wert `reaction_speed` aus einer realen Nutzermessung abgeleitet; die übrigen Profilwerte bleiben vordefiniert.
 - Der Agent verwendet **keine lernenden Verfahren** (kein Reinforcement Learning, kein neuronales Netz).
 - Es gibt **keine komplexe Gegner-KI** – Gegner werden durch einzelne Parameter beschrieben.
 - Die **Gewinnrate** dient als vereinfachter Näherungswert für „Spielspaß" und bildet die tatsächliche Spielerfahrung nur grob ab.
+- Die Reaktionszeit im Terminal wird durch Display-Latenz, Tastatur-Latenz, Fingerposition, Aufmerksamkeit und Terminal-Verhalten beeinflusst und ist kein präzises Labor-Messinstrument.
+- Reaktionszeit allein repräsentiert **nicht die vollständige Spielfähigkeit** eines Nutzers.
+- Die Kategorien `expert`, `average` und `beginner` sind vereinfachte projektspezifische Labels für die Demo und stellen **keine wissenschaftliche Bewertung** dar.
 
 ---
 
@@ -281,3 +401,7 @@ Mögliche Erweiterungen des Projekts:
 - **Personalisierte Zielbereiche** – unterschiedliche Zielgewinnraten je nach Spielerpräferenz.
 - **Grafische Benutzeroberfläche** – interaktive Steuerung der Demo-Parameter.
 - **Längere Experimente** – mehr Runden und Seeds für statistisch belastbarere Ergebnisse.
+- **Browser-basierter visueller Reaktionstest** – visuelle Reize statt Terminal-Prompts, ohne Enter-Puffer-Problematik.
+- **Maus- oder Tastenereignisse** – Messung ohne Enter-Buffering für präzisere Latenzwerte.
+- **Geräte-Kalibrierung** – Anpassung der Schwellenwerte an unterschiedliche Display- und Tastaturlatenzen.
+- **Erweiterte Profilmessung** – Einbeziehung weiterer Messgrößen wie Trefferquote oder Entscheidungszeit für ein vollständigeres personalisiertes Spielerprofil.
