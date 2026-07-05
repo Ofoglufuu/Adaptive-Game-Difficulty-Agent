@@ -5,6 +5,8 @@ Usage:
     python main.py
     python main.py --player beginner --rounds 10 --difficulty 7 --seed 42
     python main.py --player expert  --rounds 10 --difficulty 3 --seed 42
+    python main.py --reaction-test --rounds 15 --difficulty 5
+    python main.py --reaction-test --reaction-attempts 7 --rounds 20 --difficulty 6
 """
 import argparse
 from typing import List
@@ -12,6 +14,10 @@ from typing import List
 from src.player import PlayerProfile, create_default_players
 from src.game_simulation import GameRoundResult, simulate_round
 from src.difficulty_agent import AdaptiveDifficultyAgent, DifficultyDecision, get_difficulty_settings
+from src.reaction_test import (
+    run_reaction_test,
+    create_reaction_profile,
+)
 
 # ── Player selection ──────────────────────────────────────────────────────────
 
@@ -61,6 +67,17 @@ def parse_args() -> argparse.Namespace:
         default=42,
         help="Base random seed for reproducibility.",
     )
+    parser.add_argument(
+        "--reaction-test",
+        action="store_true",
+        help="Run the reaction time test and build a personalised player profile.",
+    )
+    parser.add_argument(
+        "--reaction-attempts",
+        type=int,
+        default=5,
+        help="Number of reaction-time measurements to collect (minimum 3).",
+    )
 
     args = parser.parse_args()
 
@@ -69,6 +86,10 @@ def parse_args() -> argparse.Namespace:
         parser.error(f"--rounds must be greater than 0, got {args.rounds}.")
     if not (1 <= args.difficulty <= 10):
         parser.error(f"--difficulty must be between 1 and 10, got {args.difficulty}.")
+    if args.reaction_attempts < 3:
+        parser.error(
+            f"--reaction-attempts must be >= 3, got {args.reaction_attempts}."
+        )
 
     return args
 
@@ -260,8 +281,35 @@ def run_demo(
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    args   = parse_args()
-    player = select_player(args.player)
+    args = parse_args()
+
+    if args.reaction_test:
+        # ── Reaction-test mode ────────────────────────────────────────────────
+        if args.player != "average":
+            print(
+                "Hinweis: Das Argument --player wird im Reaktionstest-Modus ignoriert."
+            )
+
+        # Run the interactive reaction test
+        test_result = run_reaction_test(attempts=args.reaction_attempts)
+
+        # Build a personalised player profile from the measured reaction time
+        player = create_reaction_profile(test_result.median_reaction_time_ms)
+
+        # Display the generated profile
+        print()
+        print("Persoenliches Profil:")
+        print(f"  Name:             {player.name}")
+        print(f"  Skill Level:      {player.skill_level:.2f}")
+        print(f"  Accuracy:         {player.accuracy:.2f}")
+        print(f"  Reaction Speed:   {player.reaction_speed:.2f}")
+        print(f"  Survival Factor:  {player.survival_factor:.2f}")
+        print()
+        print("Die adaptive Demo wird jetzt mit diesem Profil gestartet.")
+
+    else:
+        # ── Normal mode ───────────────────────────────────────────────────────
+        player = select_player(args.player)
 
     run_demo(
         player=player,

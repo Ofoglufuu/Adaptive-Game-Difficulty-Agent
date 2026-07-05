@@ -612,8 +612,270 @@ class TestComputeWinRates:
         assert window == pytest.approx(1.0)
 
     def test_single_loss(self):
-        """Single losing round → both rates are 0.0."""
+        """Single losing round -> both rates are 0.0."""
         h = self._history([False])
         overall, window = compute_win_rates(h, window_size=5)
         assert overall == pytest.approx(0.0)
         assert window == pytest.approx(0.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. Reaction test – calculate_reaction_score
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from src.reaction_test import (
+    calculate_reaction_score,
+    classify_reaction_time,
+    create_reaction_profile,
+    evaluate_reaction_times,
+    run_reaction_test,
+    ReactionTestResult,
+)
+
+
+class TestCalculateReactionScore:
+
+    def test_fast_threshold_returns_one(self):
+        """150 ms returns exactly 1.0."""
+        assert calculate_reaction_score(150.0) == pytest.approx(1.0)
+
+    def test_slow_threshold_returns_zero(self):
+        """500 ms returns exactly 0.0."""
+        assert calculate_reaction_score(500.0) == pytest.approx(0.0)
+
+    def test_midpoint_returns_approx_half(self):
+        """325 ms (midpoint) returns approximately 0.5."""
+        assert calculate_reaction_score(325.0) == pytest.approx(0.5, abs=1e-6)
+
+    def test_below_fast_threshold_clamped_to_one(self):
+        """Values faster than 150 ms remain clamped at 1.0."""
+        assert calculate_reaction_score(50.0) == pytest.approx(1.0)
+        assert calculate_reaction_score(1.0) == pytest.approx(1.0)
+
+    def test_above_slow_threshold_clamped_to_zero(self):
+        """Values slower than 500 ms remain clamped at 0.0."""
+        assert calculate_reaction_score(600.0) == pytest.approx(0.0)
+        assert calculate_reaction_score(1000.0) == pytest.approx(0.0)
+
+    def test_zero_raises(self):
+        """0 ms raises ValueError."""
+        with pytest.raises(ValueError):
+            calculate_reaction_score(0.0)
+
+    def test_negative_raises(self):
+        """Negative values raise ValueError."""
+        with pytest.raises(ValueError):
+            calculate_reaction_score(-1.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 9. Reaction test – classify_reaction_time
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestClassifyReactionTime:
+
+    def test_219_is_expert(self):
+        """219 ms is below the 220 ms expert threshold."""
+        assert classify_reaction_time(219.0) == "expert"
+
+    def test_220_is_average(self):
+        """220 ms is the lower boundary of the average range."""
+        assert classify_reaction_time(220.0) == "average"
+
+    def test_349_is_average(self):
+        """349 ms is just below the 350 ms beginner threshold."""
+        assert classify_reaction_time(349.0) == "average"
+
+    def test_350_is_beginner(self):
+        """350 ms is the lower boundary of the beginner range."""
+        assert classify_reaction_time(350.0) == "beginner"
+
+    def test_zero_raises(self):
+        """0 ms raises ValueError."""
+        with pytest.raises(ValueError):
+            classify_reaction_time(0.0)
+
+    def test_negative_raises(self):
+        """Negative values raise ValueError."""
+        with pytest.raises(ValueError):
+            classify_reaction_time(-10.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 10. Reaction test – evaluate_reaction_times
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestEvaluateReactionTimes:
+
+    def test_median_calculated_correctly(self):
+        """Median of [200, 300, 400] is 300."""
+        result = evaluate_reaction_times([200.0, 300.0, 400.0])
+        assert result.median_reaction_time_ms == pytest.approx(300.0)
+
+    def test_result_contains_all_measurements(self):
+        """reaction_times_ms list matches the input exactly."""
+        times = [250.0, 270.0, 260.0]
+        result = evaluate_reaction_times(times)
+        assert result.reaction_times_ms == times
+
+    def test_score_in_valid_range(self):
+        """reaction_score is always between 0.0 and 1.0."""
+        for times in [
+            [100.0, 120.0, 130.0],
+            [300.0, 350.0, 320.0],
+            [600.0, 700.0, 650.0],
+        ]:
+            result = evaluate_reaction_times(times)
+            assert 0.0 <= result.reaction_score <= 1.0
+
+    def test_category_is_correct(self):
+        """Category matches the median value."""
+        # median = 200 -> expert
+        result = evaluate_reaction_times([180.0, 200.0, 220.0])
+        # median of [180, 200, 220] is 200, which is < 220 -> expert
+        assert result.profile_category == "expert"
+
+    def test_category_average(self):
+        """Median in [220, 350) -> average."""
+        result = evaluate_reaction_times([220.0, 280.0, 340.0])
+        assert result.profile_category == "average"
+
+    def test_category_beginner(self):
+        """Median >= 350 -> beginner."""
+        result = evaluate_reaction_times([350.0, 400.0, 450.0])
+        assert result.profile_category == "beginner"
+
+    def test_fewer_than_three_measurements_raises(self):
+        """Fewer than 3 measurements raise ValueError."""
+        with pytest.raises(ValueError):
+            evaluate_reaction_times([200.0, 300.0])
+
+    def test_empty_list_raises(self):
+        """Empty list raises ValueError."""
+        with pytest.raises(ValueError):
+            evaluate_reaction_times([])
+
+    def test_zero_measurement_raises(self):
+        """A measurement of 0 raises ValueError."""
+        with pytest.raises(ValueError):
+            evaluate_reaction_times([200.0, 0.0, 300.0])
+
+    def test_negative_measurement_raises(self):
+        """A negative measurement raises ValueError."""
+        with pytest.raises(ValueError):
+            evaluate_reaction_times([200.0, -50.0, 300.0])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 11. Reaction test – create_reaction_profile
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestCreateReactionProfile:
+
+    def test_returns_player_profile_type(self):
+        """Returns an instance of PlayerProfile."""
+        from src.player import PlayerProfile as PP
+        profile = create_reaction_profile(300.0)
+        assert isinstance(profile, PP)
+
+    def test_name_is_correct(self):
+        """Profile name must be 'Reaktionstest-Spieler'."""
+        profile = create_reaction_profile(300.0)
+        assert profile.name == "Reaktionstest-Spieler"
+
+    def test_reaction_speed_matches_calculated_value(self):
+        """reaction_speed equals calculate_reaction_score for the given time."""
+        ms = 325.0
+        profile = create_reaction_profile(ms)
+        expected = calculate_reaction_score(ms)
+        assert profile.reaction_speed == pytest.approx(expected)
+
+    def test_skill_level_is_fixed(self):
+        """skill_level is always 0.60."""
+        assert create_reaction_profile(300.0).skill_level == pytest.approx(0.60)
+
+    def test_accuracy_is_fixed(self):
+        """accuracy is always 0.60."""
+        assert create_reaction_profile(300.0).accuracy == pytest.approx(0.60)
+
+    def test_survival_factor_is_fixed(self):
+        """survival_factor is always 0.65."""
+        assert create_reaction_profile(300.0).survival_factor == pytest.approx(0.65)
+
+    def test_invalid_reaction_time_raises(self):
+        """Passing 0 or negative raises ValueError."""
+        with pytest.raises(ValueError):
+            create_reaction_profile(0.0)
+        with pytest.raises(ValueError):
+            create_reaction_profile(-100.0)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 12. Reaction test – run_reaction_test (with monkeypatching)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestRunReactionTest:
+    """Tests for the interactive terminal function.
+
+    time.sleep is replaced with a no-op so tests do not actually wait.
+    time.perf_counter is replaced to simulate deterministic elapsed times.
+    builtins.input is replaced with a function that returns empty strings.
+    """
+
+    def _make_perf_counter(self, elapsed_seconds: float):
+        """Return a callable that alternates between 0.0 and elapsed_seconds."""
+        calls = [0]
+
+        def fake_perf_counter():
+            result = 0.0 if calls[0] % 2 == 0 else elapsed_seconds
+            calls[0] += 1
+            return result
+
+        return fake_perf_counter
+
+    def test_correct_number_of_measurements(self, monkeypatch):
+        """Result contains exactly as many measurements as attempts."""
+        monkeypatch.setattr("builtins.input", lambda *args, **kwargs: "")
+        monkeypatch.setattr("time.sleep", lambda _: None)
+        monkeypatch.setattr(
+            "time.perf_counter", self._make_perf_counter(0.25)
+        )
+
+        result = run_reaction_test(attempts=3, seed=0)
+        assert len(result.reaction_times_ms) == 3
+
+    def test_returned_result_is_valid(self, monkeypatch):
+        """Returned object is a ReactionTestResult with consistent data."""
+        monkeypatch.setattr("builtins.input", lambda *args, **kwargs: "")
+        monkeypatch.setattr("time.sleep", lambda _: None)
+        monkeypatch.setattr(
+            "time.perf_counter", self._make_perf_counter(0.30)
+        )
+
+        result = run_reaction_test(attempts=4, seed=1)
+
+        assert isinstance(result, ReactionTestResult)
+        assert result.median_reaction_time_ms > 0
+        assert 0.0 <= result.reaction_score <= 1.0
+        assert result.profile_category in ("expert", "average", "beginner")
+
+    def test_too_few_attempts_raises(self):
+        """attempts < 3 raises ValueError before any I/O occurs."""
+        with pytest.raises(ValueError):
+            run_reaction_test(attempts=2)
+
+    def test_zero_min_wait_raises(self):
+        """min_wait_seconds = 0 raises ValueError."""
+        with pytest.raises(ValueError):
+            run_reaction_test(min_wait_seconds=0.0)
+
+    def test_zero_max_wait_raises(self):
+        """max_wait_seconds = 0 raises ValueError."""
+        with pytest.raises(ValueError):
+            run_reaction_test(max_wait_seconds=0.0)
+
+    def test_min_greater_than_max_raises(self):
+        """min_wait_seconds > max_wait_seconds raises ValueError."""
+        with pytest.raises(ValueError):
+            run_reaction_test(min_wait_seconds=3.0, max_wait_seconds=1.0)
+
