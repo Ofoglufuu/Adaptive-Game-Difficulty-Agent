@@ -7,6 +7,7 @@
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{hyperref}
+\hypersetup{hidelinks}
 \usepackage{float}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -17,7 +18,7 @@
 \large Dynamische Schwierigkeitsanpassung durch Spielersimulation}
 \author{Ufuk Ofoglu \\
 Modul: Angewandte Modellierung und Systemsimulation}
-\date{27. Juli 2026 \\
+\date{25. Juli 2026 \\
 \small GitHub: \url{https://github.com/Ofoglufuu/Adaptive-Game-Difficulty-Agent}}
 
 \begin{document}
@@ -60,7 +61,7 @@ Die Architektur des Systems ist auf Determinismus und Nachvollziehbarkeit ausgel
         \draw[arrow] (sim) -- (result);
         \draw[arrow] (result) -- (agent);
         \draw[arrow] (agent) -- (next);
-        \draw[arrow, dashed] (next) -- (profile);
+        \draw[arrow, dashed] (next) -- (settings);
     \end{tikzpicture}
     \caption{Ablauf der Kernsimulation}
 \end{figure}
@@ -166,7 +167,7 @@ Die folgenden mittleren Ergebnisse wurden ermittelt:
 
 \section{Interaktive Erweiterung, Qualitätssicherung und Fazit}
 
-\textbf{Reaktionstest-Modus:} Als optionales interaktives Feature (nicht Teil des wissenschaftlichen Kernvergleichs) kann der Nutzer im Terminal Reaktionsmessungen durchführen. Aus dem Median dieser Messungen wird ein Score zwischen 0.0 und 1.0 gebildet. Dieser personalisiert ausschließlich den Wert \texttt{reaction\_speed}. Die übrigen Parameter (\texttt{skill\_level} = 0.60, \texttt{accuracy} = 0.60, \texttt{survival\_factor} = 0.65) bleiben vordefiniert. Um Fehleingaben zu vermeiden, werden Zeiten unter 80\,ms ignoriert. Die Zuordnung zu den Kategorien „Experte“, „Durchschnitt“ oder „Anfänger“ erfolgt ausschließlich im Kontext dieses Projekts und stellt keine wissenschaftliche Bewertung der allgemeinen Spielfähigkeit dar.
+\textbf{Reaktionstest-Modus:} Als optionales interaktives Feature (nicht Teil des wissenschaftlichen Kernvergleichs) kann der Nutzer im Terminal Reaktionsmessungen durchführen. Aus dem Median dieser Messungen wird ein Score zwischen 0.0 und 1.0 gebildet. Dieser personalisiert ausschließlich den Wert \texttt{reaction\_speed}. Die übrigen Parameter (\texttt{skill\_level} = 0.60, \texttt{accuracy} = 0.60, \texttt{survival\_factor} = 0.65) bleiben vordefiniert. Messungen unter 80 ms werden als implausibel frühe oder gepufferte Eingaben abgelehnt und der jeweilige Versuch wird wiederholt. Die projektspezifischen Labels \texttt{expert}, \texttt{average} und \texttt{beginner} werden ausschließlich für diese Demo verwendet und stellen keine wissenschaftliche Bewertung der allgemeinen Spielfähigkeit dar.
 
 \textbf{Qualitätssicherung:} Die Integrität des Projekts wird durch 113 bestandene automatisierte Pytest-Tests sichergestellt. Die Verwendung fester Seeds macht die Simulation reproduzierbar, was bedeutet, dass der CSV-Output mit denselben Parametern identisch bleibt. Die Reaktionsmessungen hingegen bleiben zwangsläufig von menschlichen Eingaben und Latenzen des Geräts abhängig.
 
