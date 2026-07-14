@@ -130,10 +130,13 @@ Der `AdaptiveDifficultyAgent` wertet die letzten Spielrunden aus und passt die S
 │   ├── difficulty_agent.py        # Schwierigkeitsmodell und adaptiver Agent
 │   ├── experiment.py              # Statische und adaptive Experimentläufe
 │   ├── reaction_test.py           # Interaktiver Reaktionstest und Erstellung eines persönlichen Profils
-│   └── visualization.py          # Diagrammerstellung
+│   └── visualization.py           # Diagrammerstellung
 ├── tests/
-│   └── test_simulation.py         # Automatisierte Pytest-Tests (113 Tests)
+│   ├── test_simulation.py         # Automatisierte Pytest-Tests
+│   └── test_interactive.py        # Tests für den interaktiven Modus
 ├── docs/
+│   ├── Ofoglu_Ufuk_AMS2026_Projekt.pdf
+│   ├── Ofoglu_Ufuk_AMS2026_Projekt.tex
 │   ├── project_scope.md
 │   └── project_documentation.md
 ├── results/
@@ -165,36 +168,57 @@ python -m pip install -r requirements.txt
 
 Die Demo simuliert mehrere Spielrunden und zeigt, wie sich der Schwierigkeitsgrad automatisch anpasst.
 
-**Standardausführung (15 Runden, durchschnittlicher Spieler, Startschwierigkeit 5):**
+**Interaktiver Modus (Neu):**
+
+Für eine geführte und einfache Bedienung im Terminal können Sie den interaktiven Modus starten:
+
+```bash
+python main.py --interactive
+```
+
+Dies startet ein Menü, in dem Sie zunächst zwischen zwei Modi wählen können:
+
+    1 - Normale Simulation
+    2 - Reaktionstest
+
+- **Normale Simulation:** Hier können Sie interaktiv das Spielerprofil (Anfänger, durchschnittlicher Spieler, erfahrener Spieler), die Anzahl der Simulationsrunden, die Startschwierigkeit (1 bis 10) und den Seed eingeben.
+- **Reaktionstest:** Hier werden die Anzahl der Reaktionsmessungen (mindestens 3), die Runden, die Startschwierigkeit und der Seed erfragt. Es wird kein vorgefertigtes Spielerprofil ausgewählt, da aus den gemessenen Reaktionszeiten ein personalisiertes, reaktionsbasiertes Profil erstellt wird.
+
+**Seed-Eingabe im interaktiven Modus:**
+Bei der Abfrage `Seed eingeben [Enter = zufällig]:` können Sie eine beliebige Zahl eingeben. Wenn Sie die Eingabe leer lassen (nur Enter drücken), generiert das Programm einen zufälligen Seed. Der verwendete Seed wird vor dem Start der Simulation immer im Terminal angezeigt. Dadurch können Sie exakt diese Simulation später reproduzieren.
+*(Hinweis: Diese zufällige Generierung ist rein für die interaktive Demo gedacht. Die wissenschaftlichen Vergleichsexperimente verwenden für eine exakte Reproduzierbarkeit weiterhin feste Seeds. An der Methodik der Experimente hat sich nichts geändert.)*
+
+**Präsentation im Terminal:**
+Während der Demo werden die Statistiken nach jeder einzelnen Runde ausgegeben:
+- Ein Sieg wird mit `Player Won!` (in grüner Schrift) und eine Niederlage mit `Player Lost!` (in roter Schrift) hervorgehoben.
+- Die Entscheidung des Agenten (`increase`, `decrease` oder `keep`), die nächste Schwierigkeitsstufe sowie (bei Änderungen) die Begründung werden übersichtlich in blauer Schrift dargestellt.
+- Das Programm pausiert danach jeweils für ca. 1,5 Sekunden, damit Sie dem Ablauf Schritt für Schritt folgen können.
+*(Diese Anpassungen verbessern lediglich die Präsentation und verändern weder die Simulations- noch die Agentenlogik.)*
+
+**Standardausführung (über direkte CLI-Parameter):**
+
+Alle bestehenden Aufrufe funktionieren weiterhin einwandfrei. Der Parameter `--interactive` ersetzt diese nicht, sondern ergänzt sie als nutzerfreundliche Alternative.
 
 ```bash
 python main.py
-```
-
-**Beispiele mit CLI-Parametern:**
-
-```bash
 python main.py --player beginner --rounds 10 --difficulty 7 --seed 42
 python main.py --player expert --rounds 10 --difficulty 3 --seed 42
+python main.py --reaction-test --reaction-attempts 3 --rounds 5 --difficulty 5 --seed 42
 ```
 
 **CLI-Parameter:**
 
-| Parameter            | Beschreibung                                         | Standard  | Gültige Werte                    |
-|----------------------|------------------------------------------------------|-----------|----------------------------------|
-| `--player`           | Spielerprofil                                        | `average` | `beginner`, `average`, `expert`  |
-| `--rounds`           | Anzahl der Spielrunden                               | `15`      | Ganzzahl > 0                     |
-| `--difficulty`       | Startschwierigkeit                                   | `5`       | 1 bis 10                         |
-| `--seed`             | Zufallsseed für Reproduzierbarkeit                   | `42`      | Beliebige Ganzzahl               |
+| Parameter              | Beschreibung                                                          | Standard  | Gültige Werte                    |
+|------------------------|-----------------------------------------------------------------------|-----------|----------------------------------|
+| `--interactive`        | Startet den geführten interaktiven Modus                              | deaktiviert | Flag (kein Wert)               |
+| `--player`             | Spielerprofil                                                         | `average` | `beginner`, `average`, `expert`  |
+| `--rounds`             | Anzahl der Spielrunden                                                | `15`      | Ganzzahl > 0                     |
+| `--difficulty`         | Startschwierigkeit                                                    | `5`       | 1 bis 10                         |
+| `--seed`               | Zufallsseed für Reproduzierbarkeit                                    | `42`      | Beliebige Ganzzahl               |
+| `--reaction-test`      | Aktiviert den interaktiven Reaktionstest-Modus ohne interaktive Menüs | –         | Flag (kein Wert)                 |
+| `--reaction-attempts`  | Anzahl der gültigen Reaktionszeitenmessungen                          | `5`       | Ganzzahl ≥ 3                     |
 
 Ungültige Eingaben werden mit verständlichen Fehlermeldungen abgewiesen.
-
-**Beispiel-Ausgabe (einzelne Runde):**
-
-```
-Runde 04 | Schwierigkeit 4 | Gegner 6 | Schaden 8 | Heilung 31 % | Sieg | HP 100 | Trefferquote 47 % | Agent: increase | Nächste Schwierigkeit 5
-  Gesamtgewinnrate 75.0 % | Letzte 4 Runden 75.0 %
-```
 
 ---
 
@@ -215,13 +239,6 @@ python main.py --reaction-test
 python main.py --reaction-test --reaction-attempts 5 --rounds 10 --difficulty 5 --seed 42
 python main.py --reaction-test --reaction-attempts 7 --rounds 20 --difficulty 6 --seed 123
 ```
-
-**Neue CLI-Parameter:**
-
-| Parameter              | Beschreibung                                                          | Standard | Gültige Werte  |
-|------------------------|-----------------------------------------------------------------------|----------|----------------|
-| `--reaction-test`      | Aktiviert den interaktiven Reaktionstest-Modus                        | –        | Flag (kein Wert) |
-| `--reaction-attempts`  | Anzahl der gültigen Reaktionszeitenmessungen                          | `5`      | Ganzzahl ≥ 3   |
 
 **Verhalten:**
 
@@ -295,7 +312,7 @@ oder mit dem Venv direkt:
 ./.venv/bin/python -m pytest -v
 ```
 
-**Aktueller Teststand: 113 Tests bestanden**
+**Aktueller Teststand: 118 Tests bestanden**
 
 Abgedeckte Bereiche:
 
@@ -314,6 +331,10 @@ Abgedeckte Bereiche:
 - Interaktiver Reaktionstest (`run_reaction_test`) – gemockter Input und Timing
 - Ablehnung von Messungen unter 80 ms und Wiederholungsverhalten
 - Verarbeitung eines festen Seeds für die Wartesequenz
+- Interaktive Validierungstests für `prompt_choice` und `prompt_integer`
+- Verifizierte `prompt_seed`-Logik für explizite und zufällig generierte Seeds
+- Sicherheits-Test für `--interactive`, der bestätigt, dass der Modus nicht durchfällt und die Demo nicht doppelt ausführt
+- Tests für den interaktiven Modus nutzen gemocktes `input()` und `time.sleep()`, sodass keine Wartezeiten für Nutzerinteraktionen entstehen
 
 ---
 
