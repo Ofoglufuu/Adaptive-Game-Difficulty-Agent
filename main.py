@@ -9,6 +9,7 @@ Usage:
     python main.py --reaction-test --reaction-attempts 7 --rounds 20 --difficulty 6
 """
 import argparse
+import time
 from typing import List
 
 from src.player import PlayerProfile, create_default_players
@@ -263,6 +264,14 @@ def run_demo(
         # Print reason if difficulty actually changed
         if decision.previous_level != decision.new_level:
             print_change_reason(decision)
+
+        # Print the extra result line with color and pause
+        if result.victory:
+            print("\033[92mPlayer Won!\033[0m")
+        else:
+            print("\033[91mPlayer Lost!\033[0m")
+        
+        time.sleep(1.5)
 
         # Advance to the next difficulty
         current_difficulty = decision.new_level
