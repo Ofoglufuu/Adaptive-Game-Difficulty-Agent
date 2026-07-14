@@ -97,11 +97,6 @@ def parse_args() -> argparse.Namespace:
 
 # ── Output helpers ────────────────────────────────────────────────────────────
 
-def _action_label(action: str) -> str:
-    """Return a display label for an agent action (kept in English as spec shows)."""
-    return action
-
-
 def compute_win_rates(
     history: List[GameRoundResult],
     window_size: int,
@@ -128,7 +123,6 @@ def print_round_line(
     outcome    = "Sieg" if result.victory else "Niederlage"
     heal_pct   = int(result.health_pack_rate * 100)
     acc_pct    = int(result.accuracy * 100)
-    action_str = _action_label(decision.action)
 
     print(
         f"Runde {round_num:02d} | "
@@ -138,9 +132,7 @@ def print_round_line(
         f"Heilung {heal_pct} % | "
         f"{outcome} | "
         f"HP {result.remaining_health} | "
-        f"Trefferquote {acc_pct} % | "
-        f"Agent: {action_str} | "
-        f"Nächste Schwierigkeit {decision.new_level}"
+        f"Trefferquote {acc_pct} %"
     )
     actual_window = min(window_size, round_num_for_label)
     runden_label  = "Runde" if actual_window == 1 else "Runden"
@@ -148,15 +140,6 @@ def print_round_line(
         f"  Gesamtgewinnrate {overall_win_rate * 100:.1f} % | "
         f"Letzte {actual_window} {runden_label} {window_win_rate * 100:.1f} %"
     )
-
-
-def print_change_reason(decision: DifficultyDecision) -> None:
-    """Print the agent's reason when the difficulty actually changed."""
-    if decision.previous_level < decision.new_level:
-        direction = "erhöht"
-    else:
-        direction = "reduziert"
-    print(f"→ Schwierigkeit {direction}: {decision.reason}")
 
 
 def print_summary(
@@ -261,15 +244,14 @@ def run_demo(
             round_num_for_label=round_num,
         )
 
-        # Print reason if difficulty actually changed
-        if decision.previous_level != decision.new_level:
-            print_change_reason(decision)
-
-        # Print the extra result line with color and pause
         if result.victory:
             print("\033[92mPlayer Won!\033[0m")
         else:
             print("\033[91mPlayer Lost!\033[0m")
+
+        print(f"\033[94mAgent Decision: {decision.action} | Next Difficulty: {decision.new_level}\033[0m")
+        if decision.previous_level != decision.new_level:
+            print(f"\033[94mReason: {decision.reason}\033[0m")
         
         time.sleep(1.5)
 
