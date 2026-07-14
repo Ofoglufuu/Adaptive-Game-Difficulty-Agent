@@ -28,3 +28,18 @@ def test_prompt_seed_empty():
     with patch('builtins.input', return_value=''):
         with patch('random.randint', return_value=123456):
             assert prompt_seed("Test seed") == 123456
+
+import runpy
+
+def test_interactive_no_fallthrough():
+    """Verify that using --interactive does not fall through and call run_demo a second time."""
+    with patch('sys.argv', ['main.py', '--interactive']), \
+         patch('builtins.input', side_effect=['1', '1', '1', '1', '']), \
+         patch('time.sleep'), \
+         patch('builtins.print') as mock_print:
+        
+        runpy.run_module('main', run_name='__main__')
+        
+        # Check that the demo was started exactly once
+        demo_starts = [call for call in mock_print.mock_calls if 'Live Demo' in str(call)]
+        assert len(demo_starts) == 1, "Demo should run exactly once"

@@ -379,40 +379,38 @@ if __name__ == "__main__":
 
     if args.interactive:
         run_interactive_mode()
-    elif args.reaction_test:
-        # ── Reaction-test mode ────────────────────────────────────────────────
-        if args.player != "average":
-            print(
-                "Hinweis: Das Argument --player wird im Reaktionstest-Modus ignoriert."
+    else:
+        if args.reaction_test:
+            if args.player != "average":
+                print(
+                    "Hinweis: Das Argument --player wird im Reaktionstest-Modus ignoriert."
+                )
+
+            test_result = run_reaction_test(
+                attempts=args.reaction_attempts,
+                seed=args.seed,
             )
 
-        # Run the interactive reaction test
-        test_result = run_reaction_test(
-            attempts=args.reaction_attempts,
+            player = create_reaction_profile(
+                test_result.median_reaction_time_ms
+            )
+
+            print()
+            print("Persönliches Profil:")
+            print(f"  Name:             {player.name}")
+            print(f"  Skill Level:      {player.skill_level:.2f}")
+            print(f"  Accuracy:         {player.accuracy:.2f}")
+            print(f"  Reaction Speed:   {player.reaction_speed:.2f}")
+            print(f"  Survival Factor:  {player.survival_factor:.2f}")
+            print()
+            print("Die adaptive Demo wird jetzt mit diesem Profil gestartet.")
+
+        else:
+            player = select_player(args.player)
+
+        run_demo(
+            player=player,
+            num_rounds=args.rounds,
+            start_difficulty=args.difficulty,
             seed=args.seed,
         )
-
-        # Build a personalised player profile from the measured reaction time
-        player = create_reaction_profile(test_result.median_reaction_time_ms)
-
-        # Display the generated profile
-        print()
-        print("Persönliches Profil:")
-        print(f"  Name:             {player.name}")
-        print(f"  Skill Level:      {player.skill_level:.2f}")
-        print(f"  Accuracy:         {player.accuracy:.2f}")
-        print(f"  Reaction Speed:   {player.reaction_speed:.2f}")
-        print(f"  Survival Factor:  {player.survival_factor:.2f}")
-        print()
-        print("Die adaptive Demo wird jetzt mit diesem Profil gestartet.")
-
-    else:
-        # ── Normal mode ───────────────────────────────────────────────────────
-        player = select_player(args.player)
-
-    run_demo(
-        player=player,
-        num_rounds=args.rounds,
-        start_difficulty=args.difficulty,
-        seed=args.seed,
-    )
