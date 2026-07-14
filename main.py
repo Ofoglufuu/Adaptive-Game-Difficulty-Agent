@@ -79,6 +79,11 @@ def parse_args() -> argparse.Namespace:
         default=5,
         help="Number of reaction-time measurements to collect (minimum 3).",
     )
+    parser.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Run the demo in interactive mode.",
+    )
 
     args = parser.parse_args()
 
@@ -186,6 +191,103 @@ def print_summary(
     print("=" * width)
 
 
+# ── Interactive Mode ──────────────────────────────────────────────────────────
+
+def prompt_choice(prompt: str, valid_choices: List[int]) -> int:
+    while True:
+        if prompt:
+            print(prompt)
+        try:
+            choice = int(input("> "))
+            if choice in valid_choices:
+                return choice
+            print("Ungültige Eingabe. Bitte wählen Sie eine der vorgegebenen Optionen.")
+        except ValueError:
+            print("Ungültige Eingabe. Bitte geben Sie eine Zahl ein.")
+
+
+def prompt_integer(prompt: str, min_val: int = None, max_val: int = None) -> int:
+    while True:
+        if prompt:
+            print(prompt)
+        try:
+            val = int(input("> "))
+            if min_val is not None and val < min_val:
+                print(f"Ungültige Eingabe. Der Wert muss mindestens {min_val} betragen.")
+                continue
+            if max_val is not None and val > max_val:
+                print(f"Ungültige Eingabe. Der Wert darf höchstens {max_val} betragen.")
+                continue
+            return val
+        except ValueError:
+            print("Ungültige Eingabe. Bitte geben Sie eine gültige Zahl ein.")
+
+
+def prompt_seed(prompt: str) -> int:
+    import random
+    while True:
+        if prompt:
+            print(prompt)
+        val = input("> ").strip()
+        if not val:
+            return random.randint(0, 1000000)
+        try:
+            return int(val)
+        except ValueError:
+            print("Ungültige Eingabe. Bitte geben Sie eine gültige Zahl ein oder drücken Sie Enter.")
+
+
+def run_interactive_mode() -> None:
+    print("Bitte wählen Sie einen Modus:")
+    print("1 - Normale Simulation")
+    print("2 - Reaktionstest")
+    mode = prompt_choice("", [1, 2])
+
+    if mode == 1:
+        print("Spielerprofil:")
+        print("1 - Anfänger")
+        print("2 - Durchschnittlicher Spieler")
+        print("3 - Erfahrener Spieler")
+        profile_choice = prompt_choice("", [1, 2, 3])
+        
+        if profile_choice == 1:
+            player = select_player("beginner")
+        elif profile_choice == 2:
+            player = select_player("average")
+        else:
+            player = select_player("expert")
+        
+        rounds = prompt_integer("Anzahl der Simulationsrunden", min_val=1)
+        difficulty = prompt_integer("Startschwierigkeit von 1 bis 10", min_val=1, max_val=10)
+        seed = prompt_seed("Seed eingeben [Enter = zufällig]:")
+        
+        print(f"Verwendeter Seed: {seed}")
+        run_demo(player=player, num_rounds=rounds, start_difficulty=difficulty, seed=seed)
+
+    elif mode == 2:
+        attempts = prompt_integer("Anzahl der Reaktionsmessungen, minimum 3", min_val=3)
+        rounds = prompt_integer("Anzahl der Simulationsrunden", min_val=1)
+        difficulty = prompt_integer("Startschwierigkeit von 1 bis 10", min_val=1, max_val=10)
+        seed = prompt_seed("Seed eingeben [Enter = zufällig]:")
+        
+        print(f"Verwendeter Seed: {seed}")
+        
+        test_result = run_reaction_test(attempts=attempts, seed=seed)
+        player = create_reaction_profile(test_result.median_reaction_time_ms)
+        
+        print()
+        print("Persönliches Profil:")
+        print(f"  Name:             {player.name}")
+        print(f"  Skill Level:      {player.skill_level:.2f}")
+        print(f"  Accuracy:         {player.accuracy:.2f}")
+        print(f"  Reaction Speed:   {player.reaction_speed:.2f}")
+        print(f"  Survival Factor:  {player.survival_factor:.2f}")
+        print()
+        print("Die adaptive Demo wird jetzt mit diesem Profil gestartet.")
+        
+        run_demo(player=player, num_rounds=rounds, start_difficulty=difficulty, seed=seed)
+
+
 # ── Main demo loop ────────────────────────────────────────────────────────────
 
 def run_demo(
@@ -275,7 +377,9 @@ def run_demo(
 if __name__ == "__main__":
     args = parse_args()
 
-    if args.reaction_test:
+    if args.interactive:
+        run_interactive_mode()
+    elif args.reaction_test:
         # ── Reaction-test mode ────────────────────────────────────────────────
         if args.player != "average":
             print(
