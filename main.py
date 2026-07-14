@@ -253,6 +253,7 @@ def run_demo(
         if decision.previous_level != decision.new_level:
             print(f"\033[94mReason: {decision.reason}\033[0m")
         
+        print()
         time.sleep(1.5)
 
         # Advance to the next difficulty
