@@ -137,8 +137,6 @@ Der `AdaptiveDifficultyAgent` wertet die letzten Spielrunden aus und passt die S
 ├── docs/
 │   ├── Ofoglu_Ufuk_AMS2026_Projekt.pdf
 │   ├── Ofoglu_Ufuk_AMS2026_Projekt.tex
-│   ├── project_scope.md
-│   └── project_documentation.md
 ├── results/
 │   ├── data/                      # CSV-Ergebnisdateien
 │   │   └── comparison_results.csv
